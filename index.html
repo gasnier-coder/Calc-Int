@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calculateur d'intérêts de placement par C. Gasnier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  /* ==========================================================================
+     1. CONFIGURATION GÉNÉRALE & VARIABLES
+     ========================================================================== */
+  :root {
+    --bg: #f7f6f2;
+    --card: #ffffff;
+    --fg: #18701F;
+    --muted: #000000;
+    --border: #e5e3dc;
+    --primary: #0f5132;
+    --primary-fg: #ffffff;
+    --gold: #b8893a;
+    --success: #0f5132;
+    --shadow: 0 2px 20px rgba(0,0,0,.05);
+  }
+
+  * { 
+    box-sizing: border-box; 
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #989C98;
+    color: var(--fg);
+    line-height: 1.5;
+  }
+
+  /* Structure globale (Conteneur principal) */
+  .container { 
+    max-width: 1100px; 
+    margin: 0 auto; 
+    padding: 20px 24px 40px 24px; 
+  }
+
+  /* Ligne décorative tout en haut de la page */
+  .accent-line {
+    height: 0px;
+    background: linear-gradient(90deg, var(--primary), var(--gold), var(--primary));
+  }
+
+  /* Disposition en deux colonnes (Formulaire à gauche / Résultats à droite) */
+  .layout { 
+    display: grid; 
+    gap: 24px; 
+    grid-template-columns: 1fr; 
+  }
+  @media (min-width: 960px) { 
+    .layout { grid-template-columns: 380px 1fr; } 
+  }
+
+  /* Style de base des grands blocs (Cartes blanches) */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+
+
+  /* ==========================================================================
+     2. LE LOGO (Image animée en haut à gauche)
+     ========================================================================== */
+  .mon-image {
+    width: 180px;        /* Largeur de l'image */
+    height: auto;        /* Conserve les proportions d'origine */
+    position: absolute;  /* Flotte au-dessus du reste sans décaler le texte */
+    left: 150px;          /* Distance depuis le bord gauche */
+    top: 20px;           /* Distance depuis le haut de la page */
+  }
+  /* Ajustement pour les petits écrans (mobiles) */
+  @media (max-width: 768px) {
+    .mon-image { 
+      position: relative; 
+      left: 0; 
+      top: 10px; 
+      margin: 0 auto; 
+      display: block; 
+    }
+  }
+
+
+  /* ==========================================================================
+     3. LE BLOC TITRE DE LA PAGE (Header)
+     ========================================================================== */
+  header { 
+    text-align: center; 
+    margin-bottom: 40px; 
+  }
+
+  /* Petit texte au-dessus du gros titre */
+  header .eyebrow {
+    font-size: 12px; 
+    font-weight: 600; 
+    letter-spacing: .2em;
+    text-transform: uppercase; 
+    color: var(--muted); 
+    margin: 40;
+  }
+
+  /* Gros titre principal "Calculateur d'intérêts" */
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 48px); /* Taille fluide selon l'écran */
+    margin: 12px 0 12px;
+    letter-spacing: -0.02em;
+  }
+
+  /* Texte de description sous le titre */
+  header p { 
+    color: var(--muted); 
+    max-width: 480px; 
+    margin: 0 auto; 
+  }
+
+
+  /* ==========================================================================
+     4. PANNEAU DES PARAMÈTRES (Formulaire de gauche)
+     ========================================================================== */
+  /* Titre du panneau "PARAMÈTRES DU PLACEMENT" */
+  .panel-title {
+    margin: 0 0 24px; 
+    font-size: 16px; 
+    font-weight: 600;
+    letter-spacing: .15em; 
+    text-transform: uppercase; 
+    color: var(--muted);
+  }
+
+  /* Bloc contenant une ligne de paramètre complète (Label + Input + Sliders) */
+  .field { 
+    margin-bottom: 28px; 
+  }
+  .field:last-child { 
+    margin-bottom: 0; 
+  }
+
+  /* Alignement du label et de la case numérique */
+  .field-head { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-end; 
+    margin-bottom: 12px; 
+  }
+  .field-head label { 
+    font-size: 18px; 
+    font-weight: 500; 
+  }
+
+  /* La petite boîte contenant le chiffre saisissable et l'unité (€, %, ans) */
+  .value-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: flex; 
+    align-items: baseline; 
+    gap: 4px;
+    background: var(--bg);
+  }
+  .value-box input {
+    width: 90px; 
+    border: none; 
+    background: transparent; 
+    outline: none;
+    text-align: right; 
+    font-weight: 600; 
+    font-family: inherit; 
+    font-size: 14px;
+    color: var(--fg);
+  }
+  .value-box span { 
+    font-size: 12px; 
+    color: var(--muted); 
+  }
+
+  /* Les curseurs de sélection (Sliders de défilement) */
+  input[type=range] {
+    -webkit-appearance: none; 
+    appearance: none;
+    width: 100%; 
+    height: 6px; 
+    border-radius: 999px; 
+    background: var(--border);
+    outline: none; 
+    margin: 0;
+  }
+  /* Bouton du curseur (Chrome/Safari) */
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; 
+    appearance: none;
+    width: 18px; 
+    height: 18px; 
+    border-radius: 50%;
+    background: var(--primary); 
+    cursor: pointer;
+    border: 3px solid #fff; 
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+  /* Bouton du curseur (Firefox) */
+  input[type=range]::-moz-range-thumb {
+    width: 18px; 
+    height: 18px; 
+    border-radius: 50%;
+    background: var(--primary); 
+    cursor: pointer;
+    border: 3px solid #fff; 
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+
+  /* Petits textes de bornes en dessous des curseurs (ex: 100 € ... 10 000 000 €) */
+  .minmax { 
+    display: flex; 
+    justify-content: space-between; 
+    font-size: 11px; 
+    color: var(--muted); 
+    margin-top: 6px; 
+  }
+
+
+  /* ==========================================================================
+     5. ZONE DES RÉSULTATS (Les 3 badges du haut)
+     ========================================================================== */
+  /* Grille générale contenant toute la colonne de droite */
+  .results { 
+    display: grid; 
+    gap: 16px; 
+  }
+
+  /* Alignement des 3 badges côte à côte */
+  .summary { 
+    display: grid; 
+    gap: 16px; 
+    grid-template-columns: 1fr; 
+  }
+  @media (min-width: 600px) { 
+    .summary { grid-template-columns: repeat(3, 1fr); } 
+  }
+
+  /* Style commun aux 3 badges de statistiques */
+  .stat {
+    background: var(--card); 
+    border: 1px solid var(--border);
+    border-radius: 16px; 
+    padding: 20px; 
+    box-shadow: var(--shadow);
+  }
+  .stat .label { 
+    font-size: 11px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    letter-spacing: .12em; 
+    color: var(--muted); 
+  }
+  .stat .value { 
+    font-size: 28px; 
+    font-weight: 700; 
+    margin-top: 8px; 
+    font-variant-numeric: tabular-nums; 
+  }
+
+  /* --- BLOC 1 : MONTANT FINAL (Mise en avant verte) --- */
+  .stat.highlight { 
+    background: var(--primary); 
+    color: var(--primary-fg); 
+    border-color: var(--primary); 
+  }
+  .stat.highlight .label { 
+    color: rgba(255,255,255,.75); 
+  }
+
+  /* --- BLOC 2 : INTÉRÊTS GAGNÉS (Couleur Dorée) --- */
+  .stat.accent { 
+    border-color: rgba(184, 137, 58, .35); 
+  }
+  .stat.accent .value { 
+    color: var(--gold); 
+  }
+
+  /* --- BLOC 3 : PERFORMANCE (Style par défaut de .stat) --- */
+
+
+  /* ==========================================================================
+     6. TABLEAU DU DÉTAIL ANNEE PAR ANNEE & BOUTON IMPRIMER
+     ========================================================================== */
+  /* Titres secondaires à l'intérieur des cartes */
+  h3 { 
+    margin: 0; 
+    font-size: 14px; 
+  }
+  .sub { 
+    color: var(--muted); 
+    font-size: 18px; 
+    margin: 0 0 16px; 
+  }
+
+  /* Barre d'en-tête du tableau qui accueille le titre et le bouton */
+  .card-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  
+  /* Le Bouton Imprimer */
+  .btn-print {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+  }
+  .btn-print:hover {
+    background-color: #0b3d26;
+  }
+
+  /* Conteneur défilant pour le tableau */
+  .table-wrap { 
+    max-height: 320px; 
+    overflow: auto; 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+  }
+
+  /* Le Tableau HTML */
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 14px; 
+  }
+  thead { 
+    background: var(--bg); 
+    position: sticky; 
+    top: 0; 
+  }
+  th, td { 
+    padding: 10px 16px; 
+    text-align: right; 
+    border-bottom: 1px solid var(--border); 
+  }
+  th:first-child, td:first-child { 
+    text-align: left; 
+  }
+  th { 
+    font-size: 11px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    letter-spacing: .1em; 
+    color: var(--muted); 
+  }
+  td { 
+    font-variant-numeric: tabular-nums; 
+  }
+  td.gain { 
+    color: var(--success); 
+  }
+
+
+  /* ==========================================================================
+     7. GRAPHIQUE (Chart.js)
+     ========================================================================== */
+  .chart-wrap { 
+    height: 280px; 
+  }
+
+
+  /* ==========================================================================
+     8. PARAMÈTRES POUR L'IMPRESSION PAPIER
+     ========================================================================== */
+  @media print {
+    body * { visibility: hidden; }
+    #print-section, #print-section * { visibility: visible; }
+    #print-section { position: absolute; left: 0; top: 0; width: 100%; }
+    .btn-print { display: none; } 
+    .table-wrap { max-height: none; overflow: visible; } 
+  }
+</style>
+</head>
+<body>
+
+<img 
+    src="https://github.com/gasnier-coder/belote-4-joueurs/blob/main/LOGOGASNIERTECHRONDGIF3.gif?raw=true"
+    alt="Exemple d'image"
+    class="mon-image"
+>
+
+<div class="accent-line"></div>
+
+<div class="container">
+  
+  <header>
+    <p class="eyebrow">Simulateur financier</p>
+    <h1>Calculateur d'intérêts</h1>
+    <p>Découvrez la puissance des intérêts composés. Ajustez les paramètres et visualisez la croissance de votre capital.</p>
+  </header>
+
+  <div class="layout">
+    
+    <section class="card">
+      <h2 class="panel-title">Paramètres du placement</h2>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="capital">Capital investi</label>
+          <div class="value-box">
+            <input type="number" id="capitalNum" min="100" max="500000" step="100" value="10000">
+            <span>€</span>
+          </div>
+        </div>
+        <input type="range" id="capital" min="100" max="10000000" step="100" value="10000">
+        <div class="minmax"><span>100 €</span><span>10 000 000 €</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="taux">Taux d'intérêt annuel</label>
+          <div class="value-box">
+            <input type="number" id="tauxNum" min="0" max="15" step="0.1" value="3">
+            <span>%</span>
+          </div>
+        </div>
+        <input type="range" id="taux" min="0" max="15" step="0.1" value="5">
+        <div class="minmax"><span>0 %</span><span>15 %</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="annees">Durée du placement</label>
+          <div class="value-box">
+            <input type="number" id="anneesNum" min="1" max="40" step="1" value="10">
+            <span>ans</span>
+          </div>
+        </div>
+        <input type="range" id="annees" min="1" max="40" step="1" value="10">
+        <div class="minmax"><span>1 an</span><span>40 ans</span></div>
+      </div>
+    </section>
+
+    <section class="results">
+      
+      <div class="summary">
+        <div class="stat highlight">
+          <div class="label">Montant final</div>
+          <div class="value" id="finalAmount">—</div>
+        </div>
+        <div class="stat accent">
+          <div class="label">Intérêts gagnés</div>
+          <div class="value" id="interest">—</div>
+        </div>
+        <div class="stat">
+          <div class="label">Performance</div>
+          <div class="value" id="performance">—</div>
+        </div>
+      </div>
+
+      <div class="card" id="print-section">
+        <div class="card-header-flex">
+          <h3>Détail année par année</h3>
+          <button class="btn-print" onclick="window.print()">
+            🖨️ Imprimer
+          </button>
+        </div>
+        <p class="sub">Progression du capital chaque année</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Année</th>
+                <th>Valeur</th>
+                <th>Gain cumulé</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Évolution du capital</h3>
+        <p class="sub">Croissance annuelle avec intérêts composés</p>
+        <div class="chart-wrap">
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</div>
+
+<script>
+  /* ==========================================================================
+     9. LOGIQUE DE CALCUL JAVASCRIPT
+     ========================================================================== */
+  
+  // Outils de formatage des nombres en monnaie courante (Euro)
+  const eur = new Intl.NumberFormat('fr-FR', { style:'currency', currency:'EUR', maximumFractionDigits:0 });
+  const eurP = new Intl.NumberFormat('fr-FR', { style:'currency', currency:'EUR', maximumFractionDigits:2 });
+
+  // Liaisons et état des variables de l'application
+  const ids = ['capital','taux','annees'];
+  const state = { capital: 10000, taux: 5, annees: 10 };
+
+  // Synchronisation des barres (range) avec les cases de saisie numérique (number)
+  ids.forEach(id => {
+    const range = document.getElementById(id);
+    const num = document.getElementById(id+'Num');
+    
+    const sync = (v) => {
+      const val = Number(v) || 0;
+      state[id] = val;
+      range.value = val; 
+      num.value = val;
+      compute(); // Relance le calcul à chaque changement
+    };
+    
+    range.addEventListener('input', e => sync(e.target.value));
+    num.addEventListener('input', e => sync(e.target.value));
+  });
+
+  let chart;
+  
+  // Fonction maîtresse effectuant le calcul des intérêts composés
+  function compute() {
+    const { capital, taux, annees } = state;
+    const r = taux / 100;
+    const rows = [];
+    
+    // Boucle pour générer les données année après année
+    for (let y = 1; y <= annees; y++) {
+      const v = capital * Math.pow(1+r, y);
+      rows.push({ year: y, value: v, gain: v - capital });
+    }
+    
+    const final = capital * Math.pow(1+r, annees);
+    const perf = capital > 0 ? ((final-capital)/capital)*100 : 0;
+
+    // Mise à jour des textes des 3 badges de statistiques haut
+    document.getElementById('finalAmount').textContent = eurP.format(final);
+    document.getElementById('interest').textContent = eurP.format(final-capital);
+    document.getElementById('performance').textContent = '+' + perf.toFixed(1).replace('.',',') + ' %';
+
+    // Remplissage dynamique des lignes du tableau HTML
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.year}</td>
+        <td>${eurP.format(r.value)}</td>
+        <td class="gain">+${eurP.format(r.gain)}</td>
+      </tr>
+    `).join('');
+
+    // Mise à jour des repères et valeurs du Graphique Chart.js
+    const labels = [0, ...rows.map(r=>r.year)];
+    const data = [capital, ...rows.map(r=>r.value)];
+    
+    if (!chart) {
+      // Premier rendu initial du graphique
+      const ctx = document.getElementById('chart').getContext('2d');
+      const grad = ctx.createLinearGradient(0,0,0,280);
+      grad.addColorStop(0, 'rgba(15,81,50,.35)');
+      grad.addColorStop(1, 'rgba(15,81,50,0)');
+      
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{
+          data, borderColor: '#0f5132', backgroundColor: grad,
+          borderWidth: 2.5, fill: true, tension: .35, pointRadius: 0, pointHoverRadius: 5,
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display:false },
+            tooltip: { callbacks: {
+              title: (it) => 'Année ' + it[0].label,
+              label: (it) => 'Capital : ' + eurP.format(it.parsed.y)
+            }}
+          },
+          scales: {
+            x: { grid: { display:false }, title:{ display:true, text:'Années', color:'#6b7d75', font:{size:11}} },
+            y: { grid: { color:'#e5e3dc' }, ticks: { callback: v => v>=1000 ? (v/1000).toFixed(0)+'k €' : v+' €' } }
+          }
+        }
+      });
+    } else {
+      // Rafraîchissement des données si le graphique existe déjà
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = data;
+      chart.update();
+    }
+  }
+
+  // Lancement du calcul au premier chargement de la page
+  compute();
+</script>
+</body>
+</html>
